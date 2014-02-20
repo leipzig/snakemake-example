@@ -1,0 +1,10 @@
+layout: narrow
+markdown: redcarpet
+redcarpet:
+ extensions: ["no_intra_emphasis", "fenced_code_blocks", "tables"]
+pygments: true
+name: Martin ANT1 RNA-Seq
+baseurl : http://mitomap.org/martin-rna-seq/
+uploaddir : http://mitomap.org/martin-rna-seq/tracks
+ucsc : 
+mirror : 

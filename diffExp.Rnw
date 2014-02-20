@@ -1,0 +1,320 @@
+% -*- mode: noweb; noweb-default-code-mode: R-mode; -*-
+\documentclass{article}
+
+\usepackage{geometry}
+\geometry{verbose,tmargin=2.5cm,bmargin=2.5cm,lmargin=2.5cm,rmargin=2.5cm}
+
+%headers and footers
+\usepackage{fancyhdr}
+\setlength{\headheight}{15pt}
+\pagestyle{fancyplain}
+\lhead{\fancyplain{}{\thepage}}
+\chead{}
+\rhead{\fancyplain{}{\bfseries Ant1-KO Differential Expression}}
+\cfoot{}
+\lfoot{\includegraphics[width=0.1\textwidth]{/nas/is1/leipzig/ganguly/src/R/bicLogo.png}\\[1cm]}
+
+
+%hyperlink setup
+\usepackage{hyperref}
+\usepackage{xcolor}
+\definecolor{dark-red}{rgb}{0.4,0.15,0.15}
+\definecolor{dark-blue}{rgb}{0.15,0.15,0.4}
+\definecolor{medium-blue}{rgb}{0,0,0.5}
+\hypersetup{
+    colorlinks, linkcolor={dark-red},
+    citecolor={dark-blue}, urlcolor={medium-blue}
+}
+
+
+\usepackage{longtable}
+\usepackage{rotating}
+
+%underscores in variable names cause problems
+%\usepackage{underscore}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+\title{An analysis of Ant1-KO Differential Expression in Heart and Muscle}
+\author{Jeremy Leipzig}
+\maketitle
+\tableofcontents
+\pagebreak
+<<setup,echo=FALSE,results=hide>>=
+library(Rsamtools)
+library(Biostrings)
+library(stringr)
+library(plyr)
+library(reshape)
+library("DESeq")
+library(ggplot2)
+library(xtable)
+source("/nas/is1/leipzig/ganguly/src/R/concat.R")
+library(org.Mm.eg.db)
+library("biomaRt")
+
+sessInfo<-sessionInfo()
+
+aligner<-"STAR"
+reference<-"Ensembl/GRCm38"
+
+load("diffExp.state.RData")
+
+fetchCounts<-function(sampleName){
+  counts<-read.table(concat("counts/",sampleName,".tsv"),col.names=c("txid",sampleName))
+  row.names(counts)<-counts$txid
+  return(counts[,-1,drop=FALSE])
+}
+
+counts <- Reduce(function(a,b){
+        ans <- merge(a,b,by="row.names",all=T)
+        row.names(ans) <- ans[,"Row.names"]
+        ans[,!names(ans) %in% "Row.names"]
+        }, lapply(samples,fetchCounts))
+
+counts<-counts[!(rownames(counts) %in% c("alignment_not_unique","ambiguous")),]
+names(counts)<-c(concat('MUS_ANT_',seq(1:4)),concat('MUS_B6ME_',seq(1:4)),concat('HRT_ANT_',seq(1:4)),concat('HRT_B6ME_',seq(1:4)))
+#MUSCLE_KO  MUSCLE_WT HEART_KO HEART_WT
+conds<-c(rep('MT',4),rep('MN',4),rep('HT',4),rep('HN',4))
+
+#ANT1 KO
+#B6ME WT
+pdata<-data.frame(condition=conds)
+rownames(pdata)<-c(concat('MUS_ANT_',seq(1:4)),concat('MUS_B6ME_',seq(1:4)),concat('HRT_ANT_',seq(1:4)),concat('HRT_B6ME_',seq(1:4)))
+
+#at least minCount from the paired lanes
+minCount<-100
+countsAboveThreshold<-subset(counts,rowSums(counts)>minCount)
+#subset(counts,rowSums(counts[-1])>minCount)
+
+countsMatrix<-as.matrix(countsAboveThreshold)
+rownames(countsMatrix)<-rownames(countsAboveThreshold)
+
+
+starstatsraw<-read.table(STARLOGS,sep="\t",header=TRUE,colClasses=c('character','integer','character','character'))
+row.names(starstatsraw)<-starstatsraw$Sample
+starstats<-starstatsraw[c(MUSCLE_KO,MUSCLE_WT,HEART_KO,HEART_WT),]
+starstats$Sample<-concat(str_sub(starstats$Sample,1,16),'...')
+starstats$cond<-conds
+
+
+cds <- newCountDataSet( countsMatrix, pdata$condition )
+
+ercc.counts<-read.table(ERCC_COUNTS,col.names=c("sample","count"),stringsAsFactors=FALSE)
+
+#these better be in the same order
+stopifnot(samples==ercc.counts$sample)
+sizeFactors(cds)<-ercc.counts$count
+
+write.table(counts(cds, normalized=FALSE),file=RAW_COUNTS,sep="\t",quote=FALSE)
+write.table(counts(cds, normalized=TRUE),file=NORM_COUNTS,sep="\t",quote=FALSE)
+
+#not going to estimate if using ercc
+#cds <- estimateSizeFactors( cds )
+
+#fits: parameteric or local
+#methods: pooled per-condition
+#sharingMode="fit-only"
+#gene-est-only maximum 
+sharingMode<-'maximum'
+method<-'per-condition'
+fits<-'local'
+cds <- estimateDispersions( cds , fitType="local", method=method, sharingMode=sharingMode)
+save(cds,file=CDS_FILE,compress=TRUE)
+myPval<-.01
+@
+<<conductTest,echo=FALSE,results=hide>>=
+res <- nbinomTest( cds, "MN", "MT")
+resfile<-MUSCLE_RES
+@
+<<annotate,echo=FALSE,results=hide>>=
+#http://www.bioconductor.org/packages/release/bioc/vignettes/biomaRt/inst/doc/biomaRt.pdf
+mart <- useMart(biomart = "ensembl", dataset = "mmusculus_gene_ensembl")
+results <- getBM(attributes = c("ensembl_gene_id","external_gene_id"),
+                 filters = "ensembl_gene_id", values = res$id,
+                 mart = mart)
+row.names(results)<-results$ensembl_gene_id
+res<-cbind(results[res$id,"external_gene_id"],res)
+write.csv(res,file=resfile)
+
+@
+\section{Introduction}
+\subsection{Samples}
+Below are results of the STAR mapping. Conditions are M for Muscle, H for Heart, T for Treatment(ANT1), N for Normal (B6ME).
+
+<<star,results=tex,echo=F>>=
+# Use "d" (for integers), "f", "e", "E", "g", "G", "fg" (for reals), or "s" (for strings). "f" gives numbers in the usual xxx.xxx format; "e" and "E" give n.ddde+nn or n.dddE+nn (scientific format); "g" and "G" put x[i] into scientific format only if it saves space to do so. "fg" uses fixed format as "f", but digits as number of significant digits
+# \tiny
+# \scriptsize
+# \footnotesize
+# \small
+# \normalsize
+# \large
+# \Large
+# \LARGE
+# \huge
+# \Huge
+myXtableStar<-xtable(starstats,type=tex,caption=paste("STAR mapping results"),display=c('s','s','d','s','s','s'))
+
+print(myXtableStar,include.rownames=FALSE, tabular.environment = "longtable", floating = FALSE, size="\\footnotesize")
+@
+
+\subsection{Alignment}
+After trimming, transcript counts were generated by a STAR alignment to genomic sequences.
+
+
+The STAR  used for the samples is as follows:
+\begin{verbatim}
+{STAR} --genomeDir {STARREFDIR} --outFileNamePrefix {wildcards.sample}_ --readFilesIn {input} --runThreadN 24 
+--genomeLoad NoSharedMemory --outSAMattributes All --outSAMstrandField intronMotif --sjdbGTFfile {GTFFILE}
+\end{verbatim}
+
+\subsection{Normalization}
+ERCC spike-ins were downloaded from \url{http://tools.invitrogen.com/downloads/ERCC92.fa} and used as a reference. Total counts from all 92 sequences are below. These are used for the \emph{sizeFactors} in DESeq such that they become divisors for each sample count.
+
+<<ercc,results=tex,echo=F>>=
+
+myXtableERCC<-xtable(ercc.counts,type=tex,caption=paste("Total ERCC read counts"),display=c('s','s','d'))
+print(myXtableERCC,include.rownames=FALSE, tabular.environment = "longtable", floating = FALSE, size="\\footnotesize")
+@
+\pagebreak
+\subsection{DESeq}
+A reanalysis of the non-normalized count data was performed using the
+R-based RNA-Seq analysis package DESeq \cite{Anders} in order to
+detect differential expression between normal and retinoblastoma cells.
+
+This report uses DESeq version \Sexpr{sessInfo$otherPkgs$DESeq$Version}.
+
+DESeq offers different statistical models and parameters to choose from depending on the data to be analyzed.
+
+Empirical dispersion can be computed using a \emph{pooled}, \emph{per-condition}, or \emph{blind} (no replicates) method.
+
+The following, sharing modes, which determine how much information is used to inform the dispersion of other genes, are available:
+\begin{description}
+ \item[fit-only] is appropriate for only a few replicates
+ \item[maximum] is more conservative for three or four replicates, 
+ \item[gene-est-only] is more aggressive, and is ideal for many replicates
+\end{description}
+
+For this report, we have used the \Sexpr{method} method and \Sexpr{sharingMode} sharing mode.
+
+Only genes with a combined count of \Sexpr{minCount} among all the samples (both conditions and tissues)
+\Sexpr{nrow(countsAboveThreshold)} hits fit this criteria.
+
+\pagebreak
+\subsection{Muscle Results}
+\subsubsection{Significantly DE genes in muscle}
+Significantly differentially expressed genes (padj<\Sexpr{myPval}). Fold change is ANT1/B6ME.
+
+<<dePval,results=tex,echo=F>>=
+
+resSig<-subset(res[,1:9],padj < myPval)
+names(resSig)<-c('gene','ensid','baseMean','bNorm','bRB','fc','log2fc','pval','padj')
+myXtableOne<-xtable(resSig[order(resSig$pval),1:9],type=tex,caption=paste("Significant (P<",myPval,") differential expression in ANT1 after the correction for multiple testing.",nrow(resSig),"genes."),display=c('d','s','s','E','E','E','g','g','g','g'))
+
+print(myXtableOne,include.rownames=FALSE, tabular.environment = "longtable", floating = FALSE, size="\\footnotesize")
+@
+
+\pagebreak
+\subsubsection{Upregulated genes in muscle}
+<<upreg,results=tex,echo=F>>=
+#upRegs<-resSig[ order(-resSig$fc)[1:50], ]
+upRegs<-head(subset(resSig[order(-resSig$fc),],fc>1),n=50)
+
+if(nrow(upRegs)>0){
+myXtableTwo<-xtable(upRegs,type=tex,caption=paste("Strongly significantly upregulated genes in ANT1 (top 50)",sep=""),display=c('d','s','s','E','E','E','g','g','g','g'))
+print(myXtableTwo,include.rownames=FALSE, tabular.environment = "longtable", floating = FALSE, size="\\footnotesize")
+}else{
+  print("No significantly upregulated genes")
+}
+@
+
+\pagebreak
+\subsubsection{Downregulated genes}
+<<downreg,results=tex,echo=F>>=
+downRegs<-head(subset(resSig[order(resSig$fc),],fc<=1),n=50)
+
+if(nrow(downRegs)>0){
+myXtableThree<-xtable(downRegs,type=tex,caption=paste("Strongly significantly downregulated genes in ANT1 (top 50)",sep=""),digits=3,display=c('d','s','s','E','E','E','g','g','g','g'))
+print(myXtableThree,include.rownames=FALSE, tabular.environment = "longtable", floating = FALSE, size="\\footnotesize")
+}else{
+  print("No significantly downregulated genes")
+}
+@
+
+\pagebreak
+\subsubsection{Fold Change and Significance Muscle}
+Genes with high fold change may not be significantly differentially expressed simply due to high variance.
+
+<<fcVsBasemeanmuscle,echo=FALSE,fig=TRUE>>=
+q<-qplot(log2(res$baseMean),res$log2FoldChange)+aes(color=res$padj<.01)
+print(q)
+@
+
+
+\pagebreak
+\subsection{Heart Results}
+\subsubsection{Significantly DE genes in heart}
+<<deheart,results=tex,echo=F>>=
+res <- nbinomTest( cds, "HN", "HT")
+resfile<-HEART_RES
+<<annotate>>
+<<dePval>>
+@
+\pagebreak
+\subsubsection{Upregulated genes in heart}
+<<upheart,results=tex,echo=F>>=
+<<upreg>>
+@
+
+\pagebreak
+\subsubsection{Downregulated genes in heart}
+<<downheart,results=tex,echo=F>>=
+<<downreg>>
+@
+
+\pagebreak
+\subsubsection{Fold Change and Significance Heart}
+Genes with high fold change may not be significantly differentially expressed simply due to high variance.
+
+<<fcVsBasemeanheart,echo=FALSE,fig=TRUE>>=
+q<-qplot(log2(res$baseMean),res$log2FoldChange)+aes(color=res$padj<.01)
+print(q)
+@
+
+\pagebreak
+\subsection{Eucludian distances}
+<<euclidheat,fig=TRUE,echo=F>>=
+dists<-dist(t(counts(cds)))
+heatmap( as.matrix( dists ))
+@
+
+
+
+\pagebreak
+The R session information (including the OS info, R version and all
+packages used):
+
+<<session-info,echo=FALSE,results=verbatim>>=
+sessionInfo()
+Sys.time()
+@
+
+<<git,echo=FALSE,results=hide>>=
+commit<-system("git rev-parse --verify HEAD",intern=TRUE)
+@
+\rfoot{$ \Sexpr{commit} $}
+
+\begin{thebibliography}{100}  % start the bibliography
+
+\small				% put the bibliography in a small font
+
+
+\bibitem{Anders} Anders, S. and  Huber, W. Differential expression analysis for sequence count data. Nature Precedings
+http://dx.doi.org/10.1038/npre.2010.4282.2.
+
+\end{thebibliography}  	% end the bibliography
+
+
+\end{document}
+

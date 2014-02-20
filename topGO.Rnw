@@ -1,0 +1,127 @@
+% -*- mode: noweb; noweb-default-code-mode: R-mode; -*-
+\documentclass{article}
+
+\usepackage{geometry}
+\geometry{verbose,tmargin=2.5cm,bmargin=2.5cm,lmargin=2.5cm,rmargin=2.5cm}
+
+%headers and footers
+\usepackage{fancyhdr}
+\setlength{\headheight}{15pt}
+\pagestyle{fancyplain}
+\lhead{\fancyplain{}{\thepage}}
+\chead{}
+\rhead{\fancyplain{}{\bfseries Ant1-KO TopGO Analysis}}
+\cfoot{}
+\lfoot{\includegraphics[width=0.1\textwidth]{/nas/is1/leipzig/ganguly/src/R/bicLogo.png}\\[1cm]}
+
+
+%hyperlink setup
+\usepackage{hyperref}
+\usepackage{xcolor}
+\definecolor{dark-red}{rgb}{0.4,0.15,0.15}
+\definecolor{dark-blue}{rgb}{0.15,0.15,0.4}
+\definecolor{medium-blue}{rgb}{0,0,0.5}
+\hypersetup{
+    colorlinks, linkcolor={dark-red},
+    citecolor={dark-blue}, urlcolor={medium-blue}
+}
+
+
+\usepackage{longtable}
+\usepackage{rotating}
+
+%underscores in variable names cause problems
+%\usepackage{underscore}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+\title{Ant1-KO TopGO Analysis}
+\author{Jeremy Leipzig}
+\maketitle
+\tableofcontents
+\pagebreak
+<<setup,echo=FALSE,results=hide>>=
+library(topGO)
+library(org.Mm.eg.db)
+library(xtable)
+@
+
+\section{Introduction}
+TopGO \cite{Anders} provides additional tools for exploring GO enrichment.
+
+The classicFisher is a filtered list approach - enrichment is strictly based on counts of genes associated with the GO terms.
+
+Kolmogorov-Smirnov test is supposed to use differential p-values to weight enrichment. The elim method was design to be more conservative then the classic method.
+
+<<topgo,results=hide,echo=F>>=
+muscleGos<-get(load("muscleGO.RData"))
+heartGos<-get(load("heartGO.RData"))
+ont<-'BP'
+@
+\section{Muscle}
+<<musclego,echo=FALSE,results=tex>>=
+for(crit in c('de','hot','cold')){
+  print(muscleGos[[crit]][[ont]]$xtable,include.rownames=FALSE, tabular.environment = "longtable", floating = FALSE, size="\\scriptsize")
+}
+@
+\pagebreak
+<<musclecc,echo=FALSE,results=tex>>=
+ont<-'CC'
+<<musclego>>
+@
+\pagebreak
+<<musclemf,echo=FALSE,results=tex>>=
+ont<-'MF'
+<<musclego>>
+@
+\pagebreak
+\section{Heart}
+<<heartsetup,echo=FALSE,results=hide>>=
+ont<-'BP'
+@
+
+<<heartgo,echo=FALSE,results=tex>>=
+for(crit in c('de','hot','cold')){
+  print(heartGos[[crit]][[ont]]$xtable,include.rownames=FALSE, tabular.environment = "longtable", floating = FALSE, size="\\scriptsize")
+}
+@
+\pagebreak
+<<heartcc,echo=FALSE,results=tex>>=
+ont<-'CC'
+<<heartgo>>
+@
+\pagebreak
+<<heartmf,echo=FALSE,results=tex>>=
+ont<-'MF'
+<<heartgo>>
+@
+
+\pagebreak
+The R session information (including the OS info, R version and all
+packages used):
+
+<<session-info,echo=FALSE,results=tex>>=
+toLatex(sessionInfo())
+
+@
+
+<<git,echo=FALSE,results=hide>>=
+commit<-system("git rev-parse --verify HEAD",intern=TRUE)
+time<-Sys.time()
+@
+\rfoot{$ \Sexpr{commit} \Sexpr{time} $}
+
+\begin{thebibliography}{100}  % start the bibliography
+
+\small  			% put the bibliography in a small font
+
+
+\bibitem{Alexa} Alexa, A., Rahnenfuhrer, J., and Lengauer, T. (2006).
+Improved scoring of functional groups from gene expression data by decorrelating 
+go graph structure. Bioinformatics (Oxford, England), 22:1600-1607.
+10.1093/bioinformatics/btl140.
+\end{thebibliography}  	% end the bibliography
+
+
+\end{document}
+

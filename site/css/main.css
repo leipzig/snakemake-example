@@ -1,0 +1,197 @@
+body, html {
+    height: 100%;
+    background: #fff url(../img/noise.png);
+}
+
+/* Smooth transition of hover effect */
+a {
+    transition: color 0.2s ease-in-out;
+}
+
+/* Fancy serif font for headings and brand */
+h1, h2, h3, h4, h5, h6, .navbar-brand {
+	font-family: Georgia, "Times New Roman", Times, serif;
+}
+
+/* Fancy horizontal rule */
+hr {
+    background: transparent url(../img/hr.png) repeat-x 0 0;
+    border: 0;
+    color: #ccc;
+    height: 4px;
+    padding: 0;
+    margin: 30px 0;
+}
+
+h1, h2 {
+	color: #ee9934; /* orange */
+}
+
+code {
+    border-radius: 3px;
+    color: inherit;
+    background-color: #f3f3f3;
+}
+
+pre {
+    border-radius: 3px;
+    font-size: 0.85em;
+    border: 0;
+    background-color: #f3f3f3;
+}
+
+/* A misuse of an element... */
+section {
+    background-color: rgba(51, 187, 255, 0.1); /* alpha light blue */
+    border-top: 1px solid #B1D4E7;
+    border-bottom: 1px solid #B1D4E7;
+}
+
+/* Harvest logo at various sizes. This is to be used inline with text */
+.harvest-logo-16 {
+    display: inline-block !important;
+	background: transparent url(../img/logo/favicon/wheat_5grain.svg) no-repeat;
+    height: 14px;
+    width: 14px;
+    background-size: 14px 14px;
+}
+
+.harvest-logo-24 {
+    display: inline-block !important;
+	background: transparent url(../img/logo/favicon/wheat_5grain.svg) no-repeat;
+    height: 22px;
+    width: 22px;
+    background-size: 22px 22px;
+}
+
+/* Light text shadow for elements that have a light background */
+pre, code, #header, #footer, section {
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6);
+}
+
+
+/* Header and footer style */
+
+#header, #footer {
+    border-color: #E1DCD0; /* light brown */
+    background-color: hsla(42, 32%, 51%, 0.1); /* alpha beige */
+    color: #755E33; /* brown */
+}
+
+#footer {
+    width: 100%;
+    font-size: 0.85em;
+    padding: 10px 0;
+    position: absolute;
+    bottom: 0;
+    margin: 0;
+    border-top: 1px solid #e7e7e7;
+    background-color: hsla(42, 32%, 51%, 0.1);
+}
+
+#header a:link, #header a:visited, #footer a:link, #footer a:visited {
+    color: #755E33;
+}
+
+#header a:hover, #header a:active, #footer a:hover, #footer a:active {
+    color: #524224;
+}
+
+/* Float harvest logo to prevent increasing header size */
+#header .harvest-logo-24 {
+    float: left;
+    margin-top: -2px;
+    margin-right: 5px;
+}
+
+/* Roughly match font-size to logo size */
+#header .navbar-brand {
+    font-size: 26px;
+}
+
+
+/* Structural element which enables keeping the footer *stuck* to
+    the bottom of the page. */
+#wrap {
+    position: relative;
+    min-height: 100%;
+    height: auto !important;
+    height: 100%;
+    padding-bottom: 185px;
+}
+
+#wrap.static {
+    padding-bottom: 0;
+}
+
+#wrap.static #footer {
+    position: static;
+}
+
+/* Add additional margin after containers and sections */
+#wrap > .container, #wrap > section {
+    margin-bottom: 20px;
+}
+
+#wrap > section > .container {
+    margin-bottom: 10px;
+}
+
+/* Remove excessive padding around jumbotron within a container */
+.container .jumbotron {
+    padding: 0 0 20px 0;
+}
+
+.jumbotron {
+    background: none;
+    margin-bottom: 0;
+}
+
+.jumbotron :last-child {
+    margin-bottom: 0;
+}
+
+
+/* Page-related styles */
+.page-header h1 {
+    color: #277097; /* navy */
+}
+
+.intro-text {
+    font-style: italic;
+    font-weight: 200;
+	font-family: Georgia, "Times New Roman", Times, serif;
+    margin-bottom: 20px;
+    font-size: 21px;
+    line-height: 1.4;
+}
+
+.date {
+    color: #aaa;
+}
+
+.meta {
+    font-size: 0.85em;
+    color: #aaa;
+}
+
+/* Inherit color of normal text so it does not attract the eye */
+.meta a {
+    color: inherit;
+}
+
+/* Use 2x sized images for retina-based displays */
+@media only screen and (-webkit-min-device-pixel-ratio: 1.5),
+only screen and (-moz-min-device-pixel-ratio: 1.5),
+only screen and (-o-min-device-pixel-ratio: 3/2),
+only screen and (min-device-pixel-ratio: 1.5) {
+
+}
+
+@media (max-width: 768px) {
+    #wrap {
+        padding-bottom: 310px;
+    }
+}
+
+blockquote p{font-size:15.5px;font-weight:300;line-height:1.25;}

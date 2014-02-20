@@ -1,0 +1,15 @@
+{% if site.authors[page.author] %}
+<span>
+    {% assign details = site.authors[page.author] %}
+    {% if details.name %}
+        {% assign name = details.name %}
+    {% else %}
+        {% assign name = page.author %}
+    {% endif %}
+    {% if details.website %}
+        <a href="{{ details.website }}">{{ name }}</a>
+    {% else %}
+        {{ name }}
+    {% endif %}
+</span>
+{% endif %}
